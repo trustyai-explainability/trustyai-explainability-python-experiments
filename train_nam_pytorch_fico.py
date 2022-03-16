@@ -62,7 +62,7 @@ checkpoint_callback = ModelCheckpoint(filename=tb_logger.log_dir +
                                       mode='min')
 
 litmodel = LitNAM(config, model)
-trainer = pl.Trainer(logger=tb_logger,
+trainer = pl.Trainer(logger=tb_logger, callbacks=[checkpoint_callback],
                      max_epochs=config.num_epochs)
 trainer.fit(litmodel,
             train_dataloader=trainloader,
