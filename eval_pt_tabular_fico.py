@@ -125,9 +125,8 @@ def eval_lime_impact_original(explainer, predict_proba, test_df:pd.DataFrame, k:
     return mean_is/len(test_df)
 
 
-def eval_shap_impact_original(shap_explainer, predict_proba, test_df:pd.DataFrame, k:int):
+def eval_shap_impact_original(shap_explainer, cb_model, test_df:pd.DataFrame, k:int):
     mean_is = 0
-    cb_model = Model(predict)
     for idx in np.arange(len(test_df)):
         sample = test_df.iloc[idx]
         shap_values = shap_explainer.shap_values(sample)
@@ -239,7 +238,7 @@ if __name__ == '__main__':
         ts_is = []
         os_is = []
         for k in np.arange(1, args.top_k):
-            os_is.append(eval_shap_impact_original(oshap_explainer, predict_proba, unl_test_df[:args.samples], k))
+            os_is.append(eval_shap_impact_original(oshap_explainer, cb_model, unl_test_df[:args.samples], k))
             print(f'impact-score@{k} for original-shap-explainer: {os_is}')
 
             ts_is.append(eval_shap_impact(tshap_explainer, cb_model, predictions, k))
