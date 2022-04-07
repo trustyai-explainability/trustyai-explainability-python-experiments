@@ -130,7 +130,7 @@ def eval_shap_impact_original(shap_explainer, predict_proba, test_df:pd.DataFram
     cb_model = Model(predict)
     for idx in np.arange(len(test_df)):
         sample = test_df.iloc[idx]
-        shap_values = shap_explainer.shap_values(sample, predict_proba)
+        shap_values = shap_explainer.shap_values(sample)
         features = [make_feature(k,v) for k,v in sample.items()]
         sample_input = PredictionInput(features)
         outputs = cb_model.predictAsync([sample_input]).get()
@@ -153,9 +153,9 @@ if __name__ == '__main__':
                         help='no. of samples to eval')
     parser.add_argument('--shap_bg_size', metavar='b', type=int, default=100,
                         help='no. of samples in SHAP background')
-    parser.add_argument('--lime', metavar='l', type=bool, default=True,
+    parser.add_argument('--lime', metavar='l', type=bool, default=False,
                         help='whether to run LIME experiments')
-    parser.add_argument('--shap', metavar='s', type=bool, default=True,
+    parser.add_argument('--shap', metavar='s', type=bool, default=False,
                         help='whether to run SHAP experiments')
 
     args = parser.parse_args()
@@ -173,6 +173,7 @@ if __name__ == '__main__':
     unl_train_df = train_df.drop(['RiskPerformance'],axis=1)
 
     if args.lime:
+        print('running LIME experiments')
         cat_indices = []
         for col in tab_model.categorical_cols:
             cat_indices = cat_indices + [train_df.columns.get_loc(col)]
@@ -200,6 +201,7 @@ if __name__ == '__main__':
         print(f'trustyAI-LIME:{t_is}')
 
     if args.shap:
+        print('running SHAP experiments')
         shap_bg_size = args.shap_bg_size
 
         # original SHAP explainer
