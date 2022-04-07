@@ -20,7 +20,7 @@ classpath = [
 trustyai.init(path=classpath)
 
 from trustyai.model import feature, output
-from org.kie.kogito.explainability.model import PredictionInput, PredictionOutput, EncodingParams
+from org.kie.kogito.explainability.model import PredictionInput, PredictionOutput, EncodingParams, Saliency
 from trustyai.model import simple_prediction, Model
 from trustyai.explainers import LimeExplainer, SHAPExplainer, _ShapConfig, _ShapKernelExplainer
 from trustyai.metrics import ExplainabilityMetrics
@@ -72,7 +72,7 @@ def eval_shap_impact(shap_explainer, model, predictions, k:int):
     mean_is = 0
     for prediction in predictions:
         explanation = shap_explainer.explain(prediction, model)
-        saliency = explanation.getSaliencies()[0]
+        saliency = explanation.getSaliencies()[1]
         top_features_t = saliency.getTopFeatures(k)
         impact = ExplainabilityMetrics.impactScore(cb_model, prediction, top_features_t)
         mean_is += impact
@@ -103,10 +103,10 @@ def to_fis_shap(shap_values, k, features):
     idx = 0
     fis = []
     for f in features:
-        fi = FeatureImportance(f, shap_values[idx])
+        fi = FeatureImportance(f, shap_values[1][idx])
         idx += 1
         fis.append(fi)
-    return fis
+    return Saliency(None, fis).getTopFeatures(k)
 
 
 def eval_lime_impact_original(explainer, predict_proba, test_df:pd.DataFrame, k:int):
