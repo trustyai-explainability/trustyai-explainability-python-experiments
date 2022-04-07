@@ -27,15 +27,21 @@ from org.kie.kogito.explainability.model import FeatureImportance
 
 
 def predict(inputs):
-    values = [_feature.value.as_obj() for _feature in inputs[0].features]
-    result = predict_proba(np.array([values]))
-    false_prob, true_prob = result[0]
-    if false_prob > true_prob:
-        _prediction = (False, false_prob)
-    else:
-        _prediction = (True, true_prob)
-    _output = output(name="RiskPerformance", dtype="bool", value=_prediction[0], score=_prediction[1])
-    return [PredictionOutput([_output])]
+    outputs = []
+    values = np.zeros((len(inputs),len(inputs[0].features)))
+    for idx in range(len(inputs)):
+        values[idx] = np.array([_feature.value.as_obj() for _feature in inputs[idx].features])
+    results = predict_proba(values)
+    for result in results:
+        false_prob, true_prob = result
+        if false_prob > true_prob:
+            _prediction = (False, false_prob)
+        else:
+            _prediction = (True, true_prob)
+        _output = output(name="RiskPerformance", dtype="bool", value=_prediction[0], score=_prediction[1])
+        po = PredictionOutput([_output])
+        outputs.append(po)
+    return outputs
 
 
 def make_feature(name, _value):
