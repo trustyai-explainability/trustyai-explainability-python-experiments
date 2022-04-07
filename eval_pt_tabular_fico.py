@@ -152,6 +152,8 @@ if __name__ == '__main__':
                         help='no. of samples to eval')
     parser.add_argument('--shap_bg_size', metavar='b', type=int, default=100,
                         help='no. of samples in SHAP background')
+    parser.add_argument('--lime_discretize', metavar='d', type=bool, default=True,
+                        help='whether to enable discretizer in LIME original')
     parser.add_argument('--lime', metavar='l', type=bool, default=False,
                         help='whether to run LIME experiments')
     parser.add_argument('--shap', metavar='s', type=bool, default=False,
@@ -180,7 +182,7 @@ if __name__ == '__main__':
         # original LIME explainer
         lime_explainer = lime.lime_tabular.LimeTabularExplainer(train_df.drop(['RiskPerformance'],axis=1).values,
                                                            feature_names=tab_model.continuous_cols + tab_model.categorical_cols,
-                                                           categorical_features=cat_indices,
+                                                           categorical_features=cat_indices, discretize_continuous=args.lime_discretize,
                                                            class_names=['Bad', 'Good'])
 
 
