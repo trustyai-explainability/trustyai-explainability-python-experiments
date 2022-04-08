@@ -1,13 +1,14 @@
 import argparse
+import math
 
-import pandas as pd
-import numpy as np
-from pt_tabular import TabularFICO
 import lime.lime_tabular
+import numpy as np
+import pandas as pd
 import shap
+import trustyai
 from sklearn.model_selection import train_test_split
 
-import trustyai
+from pt_tabular import TabularFICO
 
 classpath = [
         "/home/tteofili/dev/kogito-apps/explainability/explainability-core/target/*",
@@ -20,7 +21,7 @@ classpath = [
 trustyai.init(path=classpath)
 
 from trustyai.model import feature, output
-from org.kie.kogito.explainability.model import PredictionInput, PredictionOutput, EncodingParams, Saliency
+from org.kie.kogito.explainability.model import PredictionInput, PredictionOutput, Saliency
 from trustyai.model import simple_prediction, Model
 from trustyai.explainers import LimeExplainer, SHAPExplainer, _ShapConfig, _ShapKernelExplainer
 from trustyai.metrics import ExplainabilityMetrics
@@ -116,10 +117,10 @@ def eval_lime_impact_original(explainer, predict_proba, test_df:pd.DataFrame, k:
         sample = test_df.iloc[idx]
         exp = explainer.explain_instance(sample, predict_proba)
         features = [make_feature(k,v) for k,v in sample.items()]
+        top_features_o = to_fis(exp, k, features)
         sample_input = PredictionInput(features)
         outputs = cb_model.predictAsync([sample_input]).get()
         prediction_obj = simple_prediction(input_features=features, outputs=outputs[0].outputs)
-        top_features_o = to_fis(exp, k, features)
         impact = ExplainabilityMetrics.impactScore(cb_model, prediction_obj, top_features_o)
         mean_is += impact
     return mean_is/len(test_df)
@@ -138,6 +139,59 @@ def eval_shap_impact_original(shap_explainer, cb_model, test_df:pd.DataFrame, k:
         impact = ExplainabilityMetrics.impactScore(cb_model, prediction_obj, top_features_o)
         mean_is += impact
     return mean_is/len(test_df)
+
+
+def csi(sample, cb_model, tlime_explainer, runs=5):
+    features = [make_feature(k, v) for k, v in sample.items()]
+    sample_input = PredictionInput(features)
+    prediction = cb_model.predictAsync([sample_input]).get()
+    prediction_obj = simple_prediction(input_features=features, outputs=prediction[0].outputs)
+    coeffs = np.zeros((runs, len(features)))
+    for r in range(runs):
+        explanation = tlime_explainer.explain(prediction_obj, cb_model)
+        saliency = explanation._saliencies['RiskPerformance']
+        w = [fi.getScore() for fi in saliency.getPerFeatureImportance()]
+        coeffs[r] = np.array(w)
+    return coeffs_stability_index(coeffs)
+
+
+def coeffs_stability_index(coeffs):
+    sigs = np.zeros((coeffs.shape[1],))
+    for r in range(coeffs.shape[1]):
+        sigs[r] = np.var(coeffs[:, r])
+    csi = 0
+    quant_coef = 0.96
+    for j in range(coeffs.shape[1]):
+        cis = []
+        for i in range(coeffs.shape[0]):
+            g_feat = coeffs[i][j]
+            if g_feat != 0:
+                ci = [g_feat - quant_coef * math.sqrt(sigs[j]), g_feat + quant_coef * math.sqrt(sigs[j])]
+                cis.append(ci)
+        par = 0
+        for h in range(len(cis)):
+            for k in range(len(cis)):
+                if h != k:
+                    a = cis[h]
+                    b = cis[k]
+                    if max(0, min(a[1], b[1]) - max(a[0], b[0])) > 0:
+                        par += 1
+        par /= len(cis) ** 2 - len(cis)
+        csi += par
+    csi /= coeffs.shape[1]
+    return csi
+
+
+def csi_orig(sample, predict_proba, lime_explainer, runs=5):
+    coeffs = np.zeros((runs, len(sample)))
+    for r in range(runs):
+        exp = lime_explainer.explain_instance(sample, predict_proba)
+        features = [make_feature(k, v) for k, v in sample.items()]
+        top_features_o = to_fis(exp, len(features), features)
+        saliency = Saliency(None, top_features_o)
+        w = [fi.getScore() for fi in saliency.getPerFeatureImportance()]
+        coeffs[r] = np.array(w)
+    return coeffs_stability_index(coeffs)
 
 
 if __name__ == '__main__':
@@ -179,15 +233,35 @@ if __name__ == '__main__':
         for col in tab_model.categorical_cols:
             cat_indices = cat_indices + [train_df.columns.get_loc(col)]
 
-        # original LIME explainer
-        lime_explainer = lime.lime_tabular.LimeTabularExplainer(train_df.drop(['RiskPerformance'],axis=1).values,
+        # original LIME explainer without feature selection (to allow fair csi eval)
+        lime_explainer = lime.lime_tabular.LimeTabularExplainer(train_df.drop(['RiskPerformance'],axis=1).values, feature_selection='none',
                                                            feature_names=tab_model.continuous_cols + tab_model.categorical_cols,
                                                            categorical_features=cat_indices, discretize_continuous=args.lime_discretize,
                                                            class_names=['Bad', 'Good'])
 
-
         # trustyAI LIME explainer
         tlime_explainer = LimeExplainer(samples=5000, perturbations=10, seed=0, normalise_weights=False)
+
+        csis = 0
+        for n in range(args.samples):
+            sample = unl_test_df.iloc[n].to_dict()
+            csis += csi(sample, cb_model, tlime_explainer)
+        csis /= args.samples
+        print(f'csi for trustyai-lime-explainer: {csis}')
+
+        ocsis = 0
+        for n in range(args.samples):
+            sample = unl_test_df.iloc[n]
+            ocsis += csi_orig(sample, predict_proba, lime_explainer)
+        ocsis /= args.samples
+        print(f'csi for original-lime-explainer: {ocsis}')
+
+        # original LIME explainer with feature selection
+        lime_explainer = lime.lime_tabular.LimeTabularExplainer(train_df.drop(['RiskPerformance'], axis=1).values,
+                                                                feature_names=tab_model.continuous_cols + tab_model.categorical_cols,
+                                                                categorical_features=cat_indices,
+                                                                discretize_continuous=args.lime_discretize,
+                                                                class_names=['Bad', 'Good'])
 
         t_is = []
         o_is = []
