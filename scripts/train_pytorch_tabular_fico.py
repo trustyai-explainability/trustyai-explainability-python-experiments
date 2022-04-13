@@ -37,7 +37,7 @@ tabular_model = TabularModel(
     optimizer_config=optimizer_config,
     trainer_config=trainer_config,
 )
-data_df = pd.read_csv('datasets/FICO/heloc_dataset_v1.csv')
+data_df = pd.read_csv('../datasets/FICO/heloc_dataset_v1.csv')
 train_df, test_df = train_test_split(data_df, test_size=0.2)
 train_df, valid_df = train_test_split(train_df, test_size=0.1)
 tabular_model.fit(train=train_df, validation=valid_df)

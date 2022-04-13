@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 # get raw FICO data
-data_path = 'datasets/FICO/heloc_dataset_v1.csv'
+data_path = '../datasets/FICO/heloc_dataset_v1.csv'
 df = pd.read_csv(data_path)
 
 # preprocess data to be transformed into torch tensors

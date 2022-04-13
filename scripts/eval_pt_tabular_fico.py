@@ -10,15 +10,7 @@ from sklearn.model_selection import train_test_split
 
 from pt_tabular import TabularFICO
 
-classpath = [
-        "/home/tteofili/dev/kogito-apps/explainability/explainability-core/target/*",
-        "../python-trustyai/dep/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar",
-        "../python-trustyai/dep/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar",
-        "../python-trustyai/dep/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar",
-        "../python-trustyai/dep/org/optaplanner/optaplanner-core/8.17.0.Final/optaplanner-core-8.17.0.Final.jar",
-    ]
-
-trustyai.init(path=classpath)
+trustyai.init()
 
 from trustyai.model import feature, output
 from org.kie.kogito.explainability.model import PredictionInput, PredictionOutput, Saliency
@@ -197,9 +189,9 @@ def csi_orig(sample, predict_proba, lime_explainer, runs=5):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run saliency experiments.')
     parser.add_argument('--model_path', metavar='m', type=str, help='the path to the saved model',
-                        default='saved_models/fico_tabular_basic')
+                        default='../saved_models/fico_tabular_basic')
     parser.add_argument('--dataset_path', metavar='d', type=str, help='the path to the FICO dataset',
-                        default='datasets/FICO/heloc_dataset_v1.csv')
+                        default='../datasets/FICO/heloc_dataset_v1.csv')
     parser.add_argument('--top_k', metavar='k', type=int, default=1,
                         help='no. of salient features to drop for impact-score eval')
     parser.add_argument('--samples', metavar='n', type=int, default=-1,
