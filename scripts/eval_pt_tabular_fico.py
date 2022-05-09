@@ -8,7 +8,7 @@ import shap
 import trustyai
 from sklearn.model_selection import train_test_split
 
-from pt_tabular import TabularFICO
+from trustyai_experiments.pt_tabular import TabularFICO
 
 trustyai.init()
 
